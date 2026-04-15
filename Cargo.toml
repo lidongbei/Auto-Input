@@ -1,0 +1,21 @@
+[package]
+name = "auto-input"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+eframe = "0.29"
+tray-icon = "0.19"
+enigo = "0.2"
+arboard = "3"
+winapi = { version = "0.3", features = ["winuser"] }
+serde = { version = "1", features = ["derive"] }
+toml = "0.8"
+
+[build-dependencies]
+winres = "0.1"
+
+[profile.release]
+opt-level = "s"
+strip = true
+lto = true
