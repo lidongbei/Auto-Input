@@ -1,5 +1,7 @@
 # Auto Input — 自动输入工具
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 > 在禁止粘贴的场景下，通过**模拟键盘逐字输入**将文本发送到目标窗口。
 >
 > 典型用途：银行/金融系统登录框、虚拟机内的受限输入框、远程桌面密码框等。
@@ -115,3 +117,9 @@ cargo build --release
 - VMware 模式需要安装 **VMware Workstation** 并已安装 **VMware Tools**
 - 全局热键在虚拟机窗口获得焦点时失效（系统限制）
 - 配置中不保存 `custom_text` 和 `use_clipboard`（每次使用可能不同）
+
+---
+
+## 开源协议
+
+本项目基于 [MIT License](LICENSE) 开源，可自由使用、修改和分发。
