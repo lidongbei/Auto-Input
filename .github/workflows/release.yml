@@ -1,0 +1,64 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      - name: Build release
+        run: cargo build --release --target x86_64-pc-windows-msvc
+
+      - name: Rename artifact
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $src = "target/x86_64-pc-windows-msvc/release/auto-input.exe"
+          $dst = "auto-input-${tag}-x86_64.exe"
+          Copy-Item $src $dst
+          echo "ARTIFACT=$dst" >> $env:GITHUB_ENV
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "Auto Input ${{ github.ref_name }}"
+          body: |
+            ## Auto Input ${{ github.ref_name }}
+
+            ### 下载
+
+            | 文件 | 说明 |
+            |------|------|
+            | `auto-input-${{ github.ref_name }}-x86_64.exe` | Windows 64 位可执行文件（单文件，无需安装） |
+
+            ### 系统要求
+
+            - Windows 7 / 8 / 10 / 11（64 位）
+            - VMware 模式额外需要：VMware Workstation + VMware Tools
+          files: ${{ env.ARTIFACT }}
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-') }}
