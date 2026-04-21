@@ -10,7 +10,7 @@
 
 ## 功能特性
 
-- **三种输入模式**：逐字键盘模拟 / 剪贴板粘贴 / VMware 虚拟机内键盘模拟
+- **五种输入模式**：逐字键盘模拟 / Unicode 按键 / 消息注入（飞书/向日葵远控）/ 剪贴板粘贴 / VMware 虚拟机内键盘模拟
 - **全局热键**：后台运行时一键触发输入，支持自定义快捷键组合，可独立启用/禁用
 - **输入来源**：自定义文本框 或 读取系统剪贴板
 - **延迟控制**：可设置开始前延迟（用于切换焦点）和字符间延迟（控制输入速度）
@@ -25,10 +25,14 @@
 | 模式 | 适用场景 | 原理 |
 |------|----------|------|
 | **逐字模拟按键** | 普通 Windows 程序 | `enigo` 逐字发送键盘事件 |
+| **Unicode 按键** | 本地禁止粘贴的窗口 | Win32 `SendInput + KEYEVENTF_UNICODE`，绕过键盘布局 |
+| **消息注入** | 飞书/向日葵等远程控制 | `PostMessage WM_KEYDOWN+WM_CHAR+WM_KEYUP`，绕过 INJECTED 钩子过滤；⚠ **不支持中文** |
 | **粘贴 Ctrl+V** | 允许粘贴的场景 | 写入剪贴板后发送 `Ctrl+V` |
 | **VMware 虚拟机** | VM 内禁止粘贴的场景 | `vmrun` 传文件 + 客户机 PowerShell 内联 C# `SendInput + KEYEVENTF_UNICODE` |
 
 > **VMware 模式**直接以 Unicode 码点发送每个字符，不依赖键盘布局，`!@#$%^&*()` 等符号均可正确输入。
+>
+> ⚠ **消息注入模式**通过 `WM_KEYDOWN/WM_CHAR` 消息队列转发字符。ASCII 字母、数字、常用符号均正常；中文字符因远控协议不转发 `WM_IME_CHAR` 而**无法发送到远端**。如需输入中文，请开启飞书剪贴板共享功能后改用「粘贴 Ctrl+V」模式。
 
 ---
 
@@ -52,7 +56,7 @@
 路径：`%APPDATA%\auto-input\config.toml`
 
 ```toml
-input_mode = 0          # 0=逐字 1=粘贴 2=VMware
+input_mode = 0          # 0=逐字 1=粘贴 2=VMware 3=Unicode按键 4=消息注入（飞书远控，不支持中文）
 char_delay_ms = 50      # 字符间延迟（毫秒）
 start_delay_secs = 3    # 开始前延迟（秒）
 always_on_top = false

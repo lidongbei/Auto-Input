@@ -26,6 +26,16 @@
 | `MODE_CHAR` (0) | `enigo::text()` / key click | 本机窗口逐字键盘模拟 | 普通 Windows 程序 |
 | `MODE_PASTE` (1) | 写剪贴板 + Ctrl+V | 剪贴板粘贴 | 允许粘贴的场景 |
 | `MODE_VMRUN` (2) | vmrun + PowerShell SendInput | VMware 客户机内键盘模拟 | VMware 虚拟机内禁止粘贴的场景 |
+| `MODE_UNICODE` (3) | Win32 `SendInput + KEYEVENTF_UNICODE` | 本机逐字 Unicode 按键 | 本地禁止粘贴的窗口 |
+| `MODE_WM_CHAR` (4) | `PostMessage WM_KEYDOWN+WM_CHAR+WM_KEYUP` | 消息队列注入，绕过 INJECTED 钩子 | 飞书/向日葵等远程控制；⚠ **不支持中文** |
+
+## MODE_WM_CHAR 关键实现
+
+- ASCII 字母/数字/符号：`char_to_vk_shift()` 映射真实 VK 码，`PostMessage` 发 `WM_KEYDOWN + WM_CHAR + WM_KEYUP`，大写及 `!@#` 等附加 `WM_KEYDOWN(VK_SHIFT)`
+- 回车/Tab：`WM_KEYDOWN(VK_RETURN/VK_TAB)` + `WM_KEYUP`
+- 非 ASCII（中文等）：尝试 `WM_IME_CHAR`，但飞书远控协议**不转发此消息到远端**，中文无法输入
+
+**已知限制**：`MODE_WM_CHAR` 不支持中文。需要输入中文时应改用 `MODE_PASTE`（需开启飞书剪贴板共享）。
 
 ## VMware 模式关键实现
 
@@ -48,7 +58,7 @@ src/
 
 ## 配置持久化
 
-保存路径：`%APPDATA%\auto-input\config.json`
+保存路径：`%APPDATA%\auto-input\config.toml`
 
 保存时机：点击"开始输入"时、最小化到托盘时。
 

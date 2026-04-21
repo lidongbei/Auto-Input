@@ -103,8 +103,7 @@ fn char_to_vk_shift(c: char) -> Option<(u32, bool)> {
 fn send_key_to_foreground(c: char) {
     use winapi::shared::windef::HWND;
     use winapi::um::winuser::{
-        GetForegroundWindow, GetGUIThreadInfo, GetWindowThreadProcessId,
-        MapVirtualKeyW, PostMessageW, GUITHREADINFO,
+        GetForegroundWindow, MapVirtualKeyW, PostMessageW,
         WM_CHAR, WM_KEYDOWN, WM_KEYUP, VK_SHIFT, VK_RETURN, VK_TAB,
     };
     // MAPVK_VK_TO_VSC = 0
@@ -152,21 +151,16 @@ fn send_key_to_foreground(c: char) {
             return;
         }
 
-        // 非 ASCII → WM_CHAR 到焦点子窗口
-        let tid = GetWindowThreadProcessId(hwnd_fg, std::ptr::null_mut());
-        let mut gui_info: GUITHREADINFO = std::mem::zeroed();
-        gui_info.cbSize = std::mem::size_of::<GUITHREADINFO>() as u32;
-        let target: HWND = if GetGUIThreadInfo(tid, &mut gui_info) != 0
-            && !gui_info.hwndFocus.is_null()
-        {
-            gui_info.hwndFocus
-        } else {
-            hwnd_fg
-        };
+        // 非 ASCII（中文等）→ VK_PACKET(0xE7) + WM_CHAR 到前台窗口
+        // 非 ASCII（中文等）→ WM_IME_CHAR 模拟 IME 提交字符
+        // 真实 IME 输入中文时向应用发送的正是 WM_IME_CHAR（0x0286），
+        // 飞书/向日葵等远控软件对此消息有专门的字符转发逻辑，
+        // 而对 VK_PACKET 通常没有处理（无法提取其中的 Unicode 码点）。
+        const WM_IME_CHAR: u32 = 0x0286;
         let mut buf = [0u16; 2];
         let len = c.encode_utf16(&mut buf).len();
         for i in 0..len {
-            PostMessageW(target, WM_CHAR, buf[i] as usize, 1);
+            PostMessageW(hwnd_fg, WM_IME_CHAR, buf[i] as usize, 1);
         }
     }
 }

@@ -548,6 +548,18 @@ impl eframe::App for AutoInputApp {
                 ui.label(egui::RichText::new(hint).small().weak());
             });
 
+            // ── 消息注入模式中文不支持警告 ─────────────────────────
+            if self.input_mode == crate::input::MODE_WM_CHAR {
+                ui.add_space(2.0);
+                ui.label(
+                    egui::RichText::new(
+                        "⚠ 消息注入模式不支持中文输入。如需发送中文，请开启飞书剪贴板共享后改用「粘贴 Ctrl+V」模式。"
+                    )
+                    .small()
+                    .color(egui::Color32::from_rgb(240, 150, 60)),
+                );
+            }
+
             // ── VMware 设置（仅 VMware 模式显示）────────────────────────
             if self.input_mode == crate::input::MODE_VMRUN {
                 ui.add_space(6.0);
