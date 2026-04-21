@@ -47,20 +47,24 @@ fn send_unicode_char(c: char) {
         return;
     }
 
-    // 普通字符：UTF-16 编码后逐码元发送 KEYEVENTF_UNICODE
+    // 普通字符：UTF-16 编码后发送 KEYEVENTF_UNICODE
+    // emoji / 扩展区汉字需要代理对（两个 UTF-16 码元），必须在单次 SendInput 调用中原子发送，
+    // 否则拆成两次调用时高代理与低代理可能被分割，目标应用无法将其组合为完整字符。
     let mut buf = [0u16; 2];
     let encoded = c.encode_utf16(&mut buf);
+    let len = encoded.len();
     unsafe {
-        for &code_unit in encoded.iter() {
-            let mut inputs: [INPUT; 2] = std::mem::zeroed();
-            inputs[0].type_ = INPUT_KEYBOARD;
-            inputs[0].u.ki_mut().wScan = code_unit;
-            inputs[0].u.ki_mut().dwFlags = KEYEVENTF_UNICODE;
-            inputs[1].type_ = INPUT_KEYBOARD;
-            inputs[1].u.ki_mut().wScan = code_unit;
-            inputs[1].u.ki_mut().dwFlags = KEYEVENTF_UNICODE | KEYEVENTF_KEYUP;
-            SendInput(2, inputs.as_mut_ptr(), std::mem::size_of::<INPUT>() as i32);
+        // BMP 字符: 2 个事件（down+up）; 代理对字符: 4 个事件，一次提交
+        let mut inputs: [INPUT; 4] = std::mem::zeroed();
+        for (i, &code_unit) in encoded.iter().enumerate() {
+            inputs[i * 2].type_ = INPUT_KEYBOARD;
+            inputs[i * 2].u.ki_mut().wScan = code_unit;
+            inputs[i * 2].u.ki_mut().dwFlags = KEYEVENTF_UNICODE;
+            inputs[i * 2 + 1].type_ = INPUT_KEYBOARD;
+            inputs[i * 2 + 1].u.ki_mut().wScan = code_unit;
+            inputs[i * 2 + 1].u.ki_mut().dwFlags = KEYEVENTF_UNICODE | KEYEVENTF_KEYUP;
         }
+        SendInput((len * 2) as u32, inputs.as_mut_ptr(), std::mem::size_of::<INPUT>() as i32);
     }
 }
 
@@ -521,11 +525,27 @@ public class UnicodeKeyboard {{
         inputs[1].ki.dwFlags = KEYEVENTF_KEYUP;
         SendInput(2, inputs, Marshal.SizeOf(typeof(INPUT)));
     }}
+    public static void TypeSurrogatePair(char hi, char lo) {{
+        var inputs = new INPUT[4];
+        inputs[0].type = INPUT_KEYBOARD; inputs[0].ki.wScan = (ushort)hi; inputs[0].ki.dwFlags = KEYEVENTF_UNICODE;
+        inputs[1].type = INPUT_KEYBOARD; inputs[1].ki.wScan = (ushort)hi; inputs[1].ki.dwFlags = KEYEVENTF_UNICODE | KEYEVENTF_KEYUP;
+        inputs[2].type = INPUT_KEYBOARD; inputs[2].ki.wScan = (ushort)lo; inputs[2].ki.dwFlags = KEYEVENTF_UNICODE;
+        inputs[3].type = INPUT_KEYBOARD; inputs[3].ki.wScan = (ushort)lo; inputs[3].ki.dwFlags = KEYEVENTF_UNICODE | KEYEVENTF_KEYUP;
+        SendInput(4, inputs, Marshal.SizeOf(typeof(INPUT)));
+    }}
 }}
 "@
 $text = [IO.File]::ReadAllText('{guest_text}', [Text.Encoding]::UTF8)
-foreach ($ch in $text.ToCharArray()) {{
-    [UnicodeKeyboard]::TypeChar($ch)
+$i = 0
+while ($i -lt $text.Length) {{
+    $ch = $text[$i]
+    if ([char]::IsHighSurrogate($ch) -and ($i + 1) -lt $text.Length -and [char]::IsLowSurrogate($text[$i + 1])) {{
+        [UnicodeKeyboard]::TypeSurrogatePair($ch, $text[$i + 1])
+        $i += 2
+    }} else {{
+        [UnicodeKeyboard]::TypeChar($ch)
+        $i += 1
+    }}
     Start-Sleep -Milliseconds {delay}
 }}
 Remove-Item '{guest_text}' -ErrorAction SilentlyContinue

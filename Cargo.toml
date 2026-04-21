@@ -5,7 +5,7 @@ edition = "2024"
 license = "MIT"
 
 [dependencies]
-eframe = "0.29"
+iced = { version = "0.13", features = ["advanced", "tokio"] }
 tray-icon = "0.19"
 enigo = "0.2"
 arboard = "3"
