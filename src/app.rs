@@ -506,11 +506,21 @@ impl eframe::App for AutoInputApp {
             // ── 输入方式 ─────────────────────────────────────────────────
             ui.group(|ui| {
                 ui.label(egui::RichText::new("输入方式").strong());
-                ui.horizontal(|ui| {
+                ui.horizontal_wrapped(|ui| {
                     ui.radio_value(
                         &mut self.input_mode,
                         crate::input::MODE_CHAR,
                         "逐字模拟按键",
+                    );
+                    ui.radio_value(
+                        &mut self.input_mode,
+                        crate::input::MODE_UNICODE,
+                        "Unicode 按键",
+                    );
+                    ui.radio_value(
+                        &mut self.input_mode,
+                        crate::input::MODE_WM_CHAR,
+                        "消息注入（飞书远控）",
                     );
                     ui.radio_value(
                         &mut self.input_mode,
@@ -524,6 +534,10 @@ impl eframe::App for AutoInputApp {
                     );
                 });
                 let hint = match self.input_mode {
+                    crate::input::MODE_WM_CHAR =>
+                        "WM_KEYDOWN+WM_CHAR+WM_KEYUP 直接向前台窗口投递，ASCII 字符使用真实 VK 码，适用于从消息队列捕获键盘的远控软件（飞书/向日葵）",
+                    crate::input::MODE_UNICODE =>
+                        "Win32 KEYEVENTF_UNICODE 逐字发送，绕过键盘布局，适用于本地禁止粘贴的窗口",
                     crate::input::MODE_PASTE =>
                         "将文本写入剪贴板后发送 Ctrl+V；一次性粘贴，字符间延迟无效",
                     crate::input::MODE_VMRUN =>
@@ -596,6 +610,8 @@ impl eframe::App for AutoInputApp {
                     .spacing([12.0, 6.0])
                     .show(ui, |ui| {
                         if self.input_mode == crate::input::MODE_CHAR
+                            || self.input_mode == crate::input::MODE_UNICODE
+                            || self.input_mode == crate::input::MODE_WM_CHAR
                             || self.input_mode == crate::input::MODE_VMRUN
                         {
                             ui.label("字符间延迟（ms）：");
